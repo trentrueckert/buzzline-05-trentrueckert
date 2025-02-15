@@ -109,6 +109,8 @@ OR
 python3 -m consumers.file_consumer_case
 ```
 
+### Enhancements
+A Kafka consumer was created to clear the existing database, consumer Kafka messages, and log the processes. The same standard variables populated the database and then a visualization consumer was created. The visualization consumer added plots for category counts, sentiment distribution, and sentiment by category in interactive bar charts.
 ---
 
 ## Review the Project Code
