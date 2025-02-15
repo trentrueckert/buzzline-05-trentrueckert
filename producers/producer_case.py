@@ -29,6 +29,7 @@ import random
 import sys
 import time
 from datetime import datetime
+import sqlite3
 
 # import external modules
 from kafka import KafkaProducer
@@ -37,6 +38,8 @@ from kafka import KafkaProducer
 import utils.utils_config as config
 from utils.utils_producer import verify_services, create_kafka_topic
 from utils.utils_logger import logger
+from utils.utils_db import insert_message  # Import the function here
+
 
 #####################################
 # Stub Sentiment Analysis Function
@@ -57,9 +60,6 @@ def assess_sentiment(text: str) -> float:
 
 
 def generate_messages():
-    """
-    Generate a stream of JSON messages.
-    """
     ADJECTIVES = ["amazing", "funny", "boring", "exciting", "weird"]
     ACTIONS = ["found", "saw", "tried", "shared", "loved"]
     TOPICS = [
@@ -84,6 +84,10 @@ def generate_messages():
         "movie": "entertainment",
         "game": "gaming",
     }
+    
+    # Add the database path here
+    db_path = config.get_live_data_path()
+    
     while True:
         adjective = random.choice(ADJECTIVES)
         action = random.choice(ACTIONS)
@@ -112,7 +116,11 @@ def generate_messages():
             "message_length": len(message_text),
         }
 
+        # Insert the message into the database
+        insert_message(json_message, db_path)
+
         yield json_message
+
 
 
 #####################################
