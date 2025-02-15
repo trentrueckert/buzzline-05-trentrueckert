@@ -1,99 +1,38 @@
-"""
-kafka_consumer_rueckert.py
-
-Consume json messages from a live data file. 
-Insert the processed messages into a database.
-
-Example JSON message
-{
-    "message": "I just shared a meme! It was amazing.",
-    "author": "Charlie",
-    "timestamp": "2025-01-29 14:35:20",
-    "category": "humor",
-    "sentiment": 0.87,
-    "keyword_mentioned": "meme",
-    "message_length": 42
-}
-
-Database functions are in consumers/db_sqlite_case.py.
-Environment variables are in utils/utils_config module. 
-"""
-
-#####################################
-# Import Modules
-#####################################
-
-# import from standard library
 import json
 import os
 import pathlib
 import sys
-
-# import external modules
 from kafka import KafkaConsumer
-
-# import from local modules
 import utils.utils_config as config
-from utils.utils_consumer import create_kafka_consumer
 from utils.utils_logger import logger
 from utils.utils_producer import verify_services, is_topic_available
+from utils.utils_consumer import create_kafka_consumer, process_message
+from consumers.db_sqlite_case import init_db, insert_message, clear_db
+import sqlite3
 
-# Ensure the parent directory is in sys.path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from consumers.db_sqlite_case import init_db, insert_message
-
-#####################################
-# Categories to Track
-#####################################
-
-CATEGORIES = ["humor", "tech", "food", "travel", "entertainment", "gaming"]
-
-#####################################
-# Function to process a single message
-# #####################################
-
-def process_message(message: dict) -> None:
+# Add the clear_db function to handle clearing the database
+def clear_db(sql_path: pathlib.Path):
     """
-    Process and transform a single JSON message.
-    Counts category occurences.
-
+    Clears all data in the 'streamed_messages' table of the SQLite database.
+    This function is called before processing new messages to ensure a fresh start.
+    
     Args:
-        message (dict): The JSON message as a Python dictionary.
+        sql_path (pathlib.Path): Path to the SQLite database file.
     """
-    logger.info("Called process_message() with:")
-    logger.info(f"   {message=}")
     try:
-        message_text = message.get("message", "").lower()
-        category_counts = {category: message_text.count(category) for category in CATEGORIES}
-
-        processed_message = {
-            "message": message.get("message"),
-            "author": message.get("author"),
-            "timestamp": message.get("timestamp"),
-            "category": message.get("category"),
-            "sentiment": float(message.get("sentiment", 0.0)),
-            "keyword_mentioned": message.get("keyword_mentioned"),
-            "message_length": int(message.get("message_length", 0)),
-            "humor_count": int(category_counts["humor"]),
-            "tech_count": int(category_counts["tech"]),
-            "food_count": int(category_counts["food"]),
-            "travel_count": int(category_counts["travel"]),
-            "entertainment_count": int(category_counts["entertainment"]),
-            "gaming_count": int(category_counts["gaming"]),
-        }
-
-        logger.info(f"Processed message: {processed_message}")
-        return processed_message
+        conn = sqlite3.connect(sql_path)
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM streamed_messages")  # Clears all rows from the table
+        conn.commit()
+        logger.info("Database cleared successfully.")
     except Exception as e:
-        logger.error(f"Error processing message: {e}")
-        return None
+        logger.error(f"Error clearing the database: {e}")
+        raise e
+    finally:
+        conn.close()
 
 
-#####################################
-# Consume Messages from Kafka Topic
-#####################################
-
-
+# Function to consume messages from Kafka
 def consume_messages_from_kafka(
     topic: str,
     kafka_url: str,
@@ -148,7 +87,15 @@ def consume_messages_from_kafka(
             )
             sys.exit(13)
 
-    logger.info("Step 4. Process messages.")
+    logger.info("Step 4. Clear the database before consuming new messages.")
+    try:
+        # Clear the existing data from the database before starting fresh
+        clear_db(sql_path)  # Clear database before new data insertion
+    except Exception as e:
+        logger.error(f"ERROR: Failed to clear the database: {e}")
+        sys.exit(2)
+
+    logger.info("Step 5. Process messages.")
 
     if consumer is None:
         logger.error("ERROR: Consumer is None. Exiting.")
@@ -173,11 +120,7 @@ def consume_messages_from_kafka(
         raise
 
 
-#####################################
 # Define Main Function
-#####################################
-
-
 def main():
     """
     Main function to run the consumer process.
@@ -229,9 +172,7 @@ def main():
         logger.info("Consumer shutting down.")
 
 
-#####################################
 # Conditional Execution
-#####################################
-
 if __name__ == "__main__":
     main()
+

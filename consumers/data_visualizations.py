@@ -15,7 +15,7 @@ axs[1, 1].axis('off')  # This removes the fourth axis
 
 # Function to update the plots
 def update_plots():
-    # Fetch updated data
+    # Fetch updated data from the database
     query = """
     SELECT message, category, sentiment
     FROM streamed_messages;
@@ -46,7 +46,7 @@ def update_plots():
     axs[1, 0].set_ylabel('Average Sentiment')
     axs[1, 0].tick_params(axis='x', rotation=45)
 
-    # Refresh the plot
+    # Refresh the plot layout
     plt.tight_layout()  # Adjust layout to avoid overlap
 
 # Main loop for updating the plots

@@ -61,3 +61,48 @@ def create_kafka_consumer(
     except Exception as e:
         logger.error(f"Error creating Kafka consumer: {e}")
         raise
+
+def process_message(message: dict) -> dict:
+    """
+    Process and transform a single JSON message.
+    Counts category occurrences and extracts necessary fields for storage.
+
+    Args:
+        message (dict): The JSON message as a Python dictionary.
+
+    Returns:
+        dict: The processed message with extracted data.
+    """
+    logger.info("Processing message: %s", message)
+
+    try:
+        # Define the categories you want to track and count
+        CATEGORIES = ["humor", "tech", "food", "travel", "entertainment", "gaming"]
+        message_text = message.get("message", "").lower()
+
+        # Count occurrences of categories in the message text
+        category_counts = {category: message_text.count(category) for category in CATEGORIES}
+
+        # Create a processed message with necessary fields
+        processed_message = {
+            "message": message.get("message"),
+            "author": message.get("author"),
+            "timestamp": message.get("timestamp"),
+            "category": message.get("category"),
+            "sentiment": float(message.get("sentiment", 0.0)),
+            "keyword_mentioned": message.get("keyword_mentioned"),
+            "message_length": int(message.get("message_length", 0)),
+            "humor_count": int(category_counts["humor"]),
+            "tech_count": int(category_counts["tech"]),
+            "food_count": int(category_counts["food"]),
+            "travel_count": int(category_counts["travel"]),
+            "entertainment_count": int(category_counts["entertainment"]),
+            "gaming_count": int(category_counts["gaming"]),
+        }
+
+        logger.info(f"Processed message: {processed_message}")
+        return processed_message
+
+    except Exception as e:
+        logger.error(f"Error processing message: {e}")
+        return None
